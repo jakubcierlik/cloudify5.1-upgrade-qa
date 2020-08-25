@@ -1,0 +1,71 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+
+imports:
+  - https://cloudify.co/spec/cloudify/4.5.5/types.yaml
+  - plugin:cloudify-openstack-plugin
+
+
+dsl_definitions:
+
+  client_config: &client_config
+    auth_url: { get_secret: auth_url }
+    username: { get_secret: username }
+    password: { get_secret: password }
+    project_name: { get_secret: project_name }
+    region_name: { get_secret:  region_name }
+    user_domain_name: { get_secret: user_domain_name }
+    project_domain_name: { get_secret: project_domain_name }
+
+
+inputs:
+
+  instance_name:
+    default: windows-vm-455
+
+  image_id:
+    default: 36522832-43e1-4690-aadc-148cb493f415
+
+  flavor_name:
+    default: m1.medium
+
+  keypair_name:
+    default: postkeypair
+
+  network_id:
+    default: 090d62d6-2b4c-4f7f-b3fe-dfccda8ee23a
+
+  security_group_name:
+    default: all-ip-in
+
+
+node_templates:
+
+  vm:
+    type: cloudify.nodes.openstack.WindowsServer
+    properties:
+      client_config: *client_config
+      agent_config:
+        install_method: init_script
+        user: Admin
+      resource_config:
+        name: { get_input: instance_name }
+        image_id: { get_input: image_id }
+        flavor_id: { get_input: flavor_name }
+        key_name: { get_input: keypair_name }
+        networks:
+          - uuid: { get_input: network_id }
+        security_groups:
+          - name: { get_input: security_group_name }
+
+  server_script:
+    type: cloudify.nodes.WebServer
+    properties:
+      port: 444
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          implementation: scripts/start-vm.ps1
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm
